@@ -91,17 +91,19 @@ def send_to_telegram(chat_id, text):
     try: requests.post(url, json=payload, timeout=5)
     except: pass
 
-def handler(event, context):
-    if event.get("httpMethod") == "POST":
+def app(environ, start_response):
+    if environ.get("REQUEST_METHOD") == "POST":
         try:
-            body = json.loads(event.get("body", "{}"))
+            content_length = int(environ.get("CONTENT_LENGTH", 0))
+            body = json.loads(environ["wsgi.input"].read(content_length))
             if "message" in body:
                 chat_id = body["message"]["chat"]["id"]
                 text = get_passages_smart()
                 send_to_telegram(chat_id, text)
         except Exception as e:
             print(f"Webhook error: {e}")
-    return {"statusCode": 200, "body": "OK"}
+    start_response("200 OK", [("Content-Type", "text/plain")])
+    return [b"OK"]
 
 if __name__ == "__main__":
     texte = get_passages_smart()
