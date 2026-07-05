@@ -3,20 +3,17 @@ import os
 import requests
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-from flask import Flask, request
 
 load_dotenv()
 
-app = Flask(__name__)
-
 # Configuration
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-TBM_KEY = os.getenv("TBM_KEY")
+TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
+TBM_KEY = os.environ["TBM_KEY"]
 
 # Les deux arrêts à surveiller
 STOP_REPUBLIQUE = "bordeaux:StopPoint:BP:9145:LOC"
 STOP_BORDS_DE_JALLES = "bordeaux:StopPoint:BP:9149:LOC"
-MON_CHAT_ID = int(os.getenv("MON_CHAT_ID"))
+MON_CHAT_ID = int(os.environ["MON_CHAT_ID"])
 
 def fetch_passages(stop_ref):
     """Retourne juste une liste d'heures de passage pour la 901"""
@@ -94,14 +91,17 @@ def send_to_telegram(chat_id, text):
     try: requests.post(url, json=payload, timeout=5)
     except: pass
 
-@app.route('/', methods=['POST'])
-def webhook():
-    update = request.get_json(silent=True)
-    if update and 'message' in update:
-        chat_id = update['message']['chat']['id']
-        text = get_passages_smart()
-        send_to_telegram(chat_id, text)
-    return '', 200
+def handler(event, context):
+    if event.get("httpMethod") == "POST":
+        try:
+            body = json.loads(event.get("body", "{}"))
+            if "message" in body:
+                chat_id = body["message"]["chat"]["id"]
+                text = get_passages_smart()
+                send_to_telegram(chat_id, text)
+        except Exception as e:
+            print(f"Webhook error: {e}")
+    return {"statusCode": 200, "body": "OK"}
 
 if __name__ == "__main__":
     texte = get_passages_smart()
