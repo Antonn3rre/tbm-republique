@@ -16,7 +16,7 @@ STOP_BORDS_DE_JALLES = "bordeaux:StopPoint:BP:9149:LOC"
 MON_CHAT_ID = int(os.environ["MON_CHAT_ID"])
 
 def fetch_passages(stop_ref):
-    """Retourne juste une liste d'heures de passage pour la 901"""
+    """Retourne juste une liste d'heures de passage pour le G"""
     url = f"https://bdx.mecatran.com/utw/ws/siri/2.0/bordeaux/stop-monitoring.json?AccountKey={TBM_KEY}&MonitoringRef={stop_ref}&PreviewInterval=PT1H"
     headers = {"Accept": "application/json"}
     heures = []
@@ -29,7 +29,7 @@ def fetch_passages(stop_ref):
         for visit in visits:
             journey = visit["MonitoredVehicleJourney"]
             dest = journey["DestinationName"][0]["value"]
-            # On cible bien la ligne 901 direction Gare St-Jean
+            # On cible bien la ligne G direction Gare St-Jean
             if "GARE ST-JEAN" in dest.upper():
                 time_str = journey["MonitoredCall"].get("ExpectedArrivalTime")
                 if time_str:
@@ -50,9 +50,9 @@ def get_passages_smart():
     heures_bj = [h for h in heures_bj if h > maintenant_utc]
     
     if not heures_bj:
-        return "📌 *Infos Ligne 901 :*\nAucun bus en approche à Bords de Jalles. 🚌"
+        return "*Infos Ligne G :*\nAucun bus en approche à Bords de Jalles. 🚌"
         
-    message = "📌 *Horaires Ligne 901 (Gare St-Jean) :*\n\n"
+    message = "*Horaires Ligne G (Gare St-Jean) :*\n\n"
     
     for t_bj in heures_bj[:3]:
         heure_bj_str = f"{(t_bj.hour + 2) % 24:02d}:{t_bj.minute:02d}"
@@ -71,17 +71,19 @@ def get_passages_smart():
                 break
         
         if bus_normal_trouve:
-            message += f"✅ *Trajet Normal* (Ligne 901)\n"
-            message += f"📍 République : *{heure_rep_str}*\n"
-            message += f"📋 Bords de Jalles : {heure_bj_str}\n\n"
+            message += f"✅ *Trajet Normal*\n"
+            message += f"République : *{heure_rep_str}*\n"
+            message += f"Bords de Jalles : {heure_bj_str}\n\n"
         else:
             # Pas de correspondance horaire à République -> Déviation détectée
+            # Si le bus arrive dans moins de 5 min à BJ, il a déjà dépassé l'arrêt temporaire
+            if (t_bj - maintenant_utc).total_seconds() / 60 < 5:
+                continue
             t_estime_rep = t_bj - timedelta(minutes=4)
             heure_estime_rep = f"{(t_estime_rep.hour + 2) % 24:02d}:{t_estime_rep.minute:02d}"
-            message += f"⚠️ *Déviation / Arrêt temporaire !* (Ligne 901)\n"
-            message += f"❌ Le bus évite l'arrêt République normal.\n"
-            message += f"📍 République (Arrêt temp.) : *{heure_estime_rep}*\n"
-            message += f"📋 Bords de Jalles : {heure_bj_str}\n\n"
+            message += f"⚠️ *Déviation / Arrêt temporaire !*\n"
+            message += f"Arrêt temp. (estimé) : *{heure_estime_rep}*\n"
+            message += f"Bords de Jalles : {heure_bj_str}\n\n"
             
     return message
 
